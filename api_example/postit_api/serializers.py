@@ -1,18 +1,37 @@
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from . import models
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = get_user_model()
+        fields = ['username', 'password']
+        extra_kwargs = {'password': {'write_only': True}}
+
+    def create(self, validated_data):
+        password = validated_data.pop('password')
+        user = get_user_model()(**validated_data)
+        user.set_password(password)
+        user.save()
+        return user
 
 
 class CommentSerializer(serializers.ModelSerializer):
     user_id = serializers.ReadOnlyField(source='user.id')
     user_username = serializers.ReadOnlyField(source='user.username')
     post = serializers.ReadOnlyField(source='post.id')
+    like_count = serializers.SerializerMethodField()
+    
+    def get_like_count(self, obj):
+        return models.CommentLike.objects.filter(comment=obj).count()
 
     class Meta:
         model = models.Comment
         fields = [
             'id', 'body', 'post',
             'created_at', 'updated_at',
-            'user_id', 'user_username',
+            'user_id', 'user_username', 'like_count',
         ]
 
 
